@@ -240,8 +240,6 @@ public class FileServerHandler extends SimpleChannelInboundHandler<FullHttpReque
         try{
             BufferedImage originImage = ImageIO.read(file);
 
-            ColorModel colorModel = originImage.getColorModel();
-
             float originWidth = originImage.getWidth();
             float originHeight = originImage.getHeight();
 
