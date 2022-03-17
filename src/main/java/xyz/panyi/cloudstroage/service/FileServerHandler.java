@@ -1,5 +1,9 @@
 package xyz.panyi.cloudstroage.service;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.Tag;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
@@ -10,12 +14,14 @@ import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.springframework.util.StringUtils;
+import xyz.panyi.cloudstroage.util.ImageUtil;
 import xyz.panyi.cloudstroage.util.LogUtil;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
 import java.io.*;
 import java.net.URLDecoder;
 import java.nio.file.Files;
@@ -233,8 +239,20 @@ public class FileServerHandler extends SimpleChannelInboundHandler<FullHttpReque
 
         try{
             BufferedImage originImage = ImageIO.read(file);
+
+            ColorModel colorModel = originImage.getColorModel();
+
             float originWidth = originImage.getWidth();
             float originHeight = originImage.getHeight();
+
+            //解析meta 数据 读出exif
+            ImageUtil.ImageInformation imageInformation = ImageUtil.readImageInformation(file);
+            if(imageInformation != null){
+                BufferedImage oImage = ImageUtil.transformImage(originImage , ImageUtil.getExifTransformation(imageInformation));
+                originImage = oImage;
+                originWidth = oImage.getWidth();
+                originHeight = oImage.getHeight();
+            }
 
             int dstHeight = 0;
             int dstWidth = 0;
@@ -246,10 +264,12 @@ public class FileServerHandler extends SimpleChannelInboundHandler<FullHttpReque
                 dstWidth = (int)((float)(originWidth / originHeight) * dstSize);
             }
 
+
             BufferedImage scaleImage = new BufferedImage(dstWidth , dstHeight , originImage.getType());
-            Graphics canvas = scaleImage.getGraphics();
-            canvas.drawImage(originImage , 0 , 0 ,dstWidth , dstHeight , null);
-            canvas.dispose();
+            // Graphics canvas = scaleImage.getGraphics();
+            Graphics2D graphics2D = scaleImage.createGraphics();
+            graphics2D.drawImage(originImage , 0 , 0 ,dstWidth , dstHeight , null);
+            graphics2D.dispose();
 
             if(suffix.equalsIgnoreCase("jfif")){//jfif文件 按jpg处理
                 suffix = "jpg";
@@ -358,5 +378,9 @@ public class FileServerHandler extends SimpleChannelInboundHandler<FullHttpReque
             }
         }
         return result;
+    }
+
+    private static void handleExifOrientation(final int orientation , Graphics2D canvas){
+
     }
 }//end class
